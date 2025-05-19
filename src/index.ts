@@ -57,7 +57,7 @@ program
       const note = await getNoteContent(url, options.headless);
       console.log(`\nTitle: ${note.title}`);
       console.log(`Author: ${note.author}`);
-      console.log(`\nContent:\n${note.content}`);
+      console.log(`Content:\n${note.content}`);
       console.log(`\nTags: ${note.tags.join(', ')}`);
       console.log(`Likes: ${note.likes}, Collects: ${note.collects}, Comments: ${note.comments}`);
       if (note.images && note.images.length > 0) {

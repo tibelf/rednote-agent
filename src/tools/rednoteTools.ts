@@ -159,6 +159,7 @@ export class RedNoteTools {
         try {
           // Click on the note cover to open detail
           await noteItems[i].$eval('a.cover.mask.ld', (el: HTMLElement) => el.click())
+          console.log(await noteItems[i].evaluate(node => node.outerHTML));
 
           // Wait for the note page to load
           logger.info('Waiting for note page to load')
@@ -179,7 +180,21 @@ export class RedNoteTools {
 
             // Get content
             const contentElement = article.querySelector('#detail-desc .note-text')
-            const content = contentElement?.textContent?.trim() || ''
+            function getTextWithoutLinks(ele: any) {
+              let text = '';
+              for (const node of ele.childNodes) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                  text += node.textContent;
+                } else if (
+                  node.nodeType === Node.ELEMENT_NODE &&
+                  !(node.tagName && node.tagName.toLowerCase() === 'a')
+                ) {
+                  text += getTextWithoutLinks(node);
+                }
+              }
+              return text;
+            }
+            const content = contentElement ? getTextWithoutLinks(contentElement).trim() : ''
 
             // Get author info
             const authorElement = article.querySelector('.author-wrapper .username')
@@ -197,8 +212,10 @@ export class RedNoteTools {
             const comments = parseInt(commentsElement?.textContent?.replace(/[^\d]/g, '') || '0')
 
             // Get tags
-            const tagElements = article.querySelectorAll('.tag-item');
-            const tags = Array.from(tagElements).map(tag => tag.textContent?.trim() || '').filter(Boolean);
+            // const tagElements = article.querySelectorAll('.tag-item');
+            // const tags = Array.from(tagElements).map(tag => tag.textContent?.trim() || '').filter(Boolean);
+            const tagElements = article.querySelectorAll('#detail-desc a.tag');
+            const tags = Array.from(tagElements).map(el => el.textContent?.replace(/^#/, '').trim()).filter(Boolean);
 
             return {
               title,
