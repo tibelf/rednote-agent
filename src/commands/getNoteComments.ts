@@ -5,14 +5,15 @@ import { RedNoteTools } from '../tools/rednoteTools';
 /**
  * Get comments for a note by URL
  * @param url The URL of the note
+ * @param headless Whether to use headless mode
  * @returns Array of comments for the note
  */
-export async function getNoteComments(url: string): Promise<Comment[]> {
-  logger.info(`Getting comments for URL: ${url}`);
-  
+export async function getNoteComments(url: string, headless: boolean = false): Promise<Comment[]> {
+  const tools = new RedNoteTools(headless);
   try {
-    const redNoteTools = new RedNoteTools();
-    const comments = await redNoteTools.getNoteComments(url);
+    await tools.initialize();
+    logger.info(`Getting comments for URL: ${url}`);
+    const comments = await tools.getNoteComments(url);
     
     // 统计评论总数（一级评论+回复）
     const totalComments = comments.reduce((sum, comment) => {
@@ -24,5 +25,7 @@ export async function getNoteComments(url: string): Promise<Comment[]> {
   } catch (error) {
     logger.error(`Error getting comments for URL ${url}:`, error);
     throw new Error(`Failed to get comments: ${(error as Error).message}`);
+  } finally {
+    await tools.cleanup();
   }
 }

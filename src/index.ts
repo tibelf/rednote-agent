@@ -20,10 +20,11 @@ program
   .command('search <keywords>')
   .description('Search for notes by topic/keywords')
   .option('-l, --limit <number>', 'Maximum number of notes to return', '10')
-  .action(async (keywords: string, options: { limit: string }) => {
+  .option('-h, --headless', 'Run in headless mode')
+  .action(async (keywords: string, options: { limit: string, headless: boolean }) => {
     try {
       const limit = parseInt(options.limit, 10);
-      const notes = await searchNotes(keywords, limit);
+      const notes = await searchNotes(keywords, limit, options.headless);
       
       if (notes.length === 0) {
         console.log('No notes found for the given keywords.');
@@ -32,10 +33,12 @@ program
       
       console.log(`Found ${notes.length} notes:`);
       notes.forEach((note: Note, index: number) => {
-        console.log(`\n[${index + 1}] ${note.title}`);
+        console.log(`\n[${index + 1}]`);
+        console.log(`\nTitle: ${note.title}`);
         console.log(`Author: ${note.author}`);
-        console.log(`Content: ${note.content.substring(0, 100)}${note.content.length > 100 ? '...' : ''}`);
-        console.log(`Likes: ${note.likes}, Comments: ${note.comments}`);
+        console.log(`\nContent:\n${note.content}`);
+        console.log(`\nTags: ${note.tags.join(', ')}`);
+        console.log(`Likes: ${note.likes}, Collects: ${note.collects}, Comments: ${note.comments}`);
         console.log(`URL: ${note.url}`);
       });
     } catch (error) {
@@ -48,9 +51,10 @@ program
 program
   .command('get-note <url>')
   .description('Get detailed content of a note')
-  .action(async (url: string) => {
+  .option('-h, --headless', 'Run in headless mode')
+  .action(async (url: string, options: { headless: boolean }) => {
     try {
-      const note = await getNoteContent(url);
+      const note = await getNoteContent(url, options.headless);
       console.log(`\nTitle: ${note.title}`);
       console.log(`Author: ${note.author}`);
       console.log(`\nContent:\n${note.content}`);
@@ -72,9 +76,10 @@ program
 program
   .command('get-comments <url>')
   .description('Get comments for a note')
-  .action(async (url: string) => {
+  .option('-h, --headless', 'Run in headless mode')
+  .action(async (url: string, options: { headless: boolean }) => {
     try {
-      const comments = await getNoteComments(url);
+      const comments = await getNoteComments(url, options.headless);
       
       if (comments.length === 0) {
         console.log('No comments found for this note.');
@@ -109,12 +114,13 @@ program
   .option('-l, --limit <number>', 'Maximum number of notes to return in search', '5')
   .option('-s, --skip-content', 'Skip retrieving full note content')
   .option('-c, --skip-comments', 'Skip retrieving note comments')
-  .action(async (keywords: string, options: { limit: string, skipContent: boolean, skipComments: boolean }) => {
+  .option('-h, --headless', 'Run in headless mode')
+  .action(async (keywords: string, options: { limit: string, skipContent: boolean, skipComments: boolean, headless: boolean }) => {
     try {
       // Step 1: Search notes
       console.log(`\n--- Searching for notes matching: "${keywords}" ---`);
       const limit = parseInt(options.limit, 10);
-      const notes = await searchNotes(keywords, limit);
+      const notes = await searchNotes(keywords, limit, options.headless);
       
       if (notes.length === 0) {
         console.log('No notes found for the given keywords.');
@@ -136,7 +142,7 @@ program
       // Step 2: Get note content (if not skipped)
       if (!options.skipContent) {
         console.log('\n--- Getting note content ---');
-        const noteDetail = await getNoteContent(selectedNote.url);
+        const noteDetail = await getNoteContent(selectedNote.url, options.headless);
         console.log(`\nTitle: ${noteDetail.title}`);
         console.log(`Author: ${noteDetail.author}`);
         console.log(`\nContent:\n${noteDetail.content}`);
@@ -146,7 +152,7 @@ program
       // Step 3: Get comments (if not skipped)
       if (!options.skipComments) {
         console.log('\n--- Getting note comments ---');
-        const comments = await getNoteComments(selectedNote.url);
+        const comments = await getNoteComments(selectedNote.url, options.headless);
         
         if (comments.length === 0) {
           console.log('No comments found for this note.');
@@ -181,14 +187,18 @@ program
   .command('init')
   .description('Initialize and login to RedNote')
   .option('-t, --timeout <seconds>', 'Login timeout in seconds', '120')
-  .action(async (options: { timeout: string }) => {
+  .option('-h, --headless', 'Run in headless mode')
+  .action(async (options) => {
     const { AuthManager } = require('./auth/authManager');
     try {
       const timeout = parseInt(options.timeout, 10);
       console.log(`Starting login process (timeout: ${timeout}s)...`);
       
       const authManager = new AuthManager();
-      await authManager.login({ timeout });
+      await authManager.login({ 
+        timeout,
+        headless: options.headless
+      });
       await authManager.cleanup();
       
       console.log('Login successful! Cookie has been saved.');

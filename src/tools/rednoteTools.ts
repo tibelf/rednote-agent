@@ -14,6 +14,8 @@ export interface Note {
   comments?: number
 }
 
+
+
 export interface Comment {
   author: string
   content: string
@@ -44,15 +46,17 @@ export class RedNoteTools {
   private authManager: AuthManager
   private browser: Browser | null = null
   private page: Page | null = null
+  private headless: boolean = false
 
-  constructor() {
+  constructor(headless: boolean = false) {
     logger.info('Initializing RedNoteTools')
     this.authManager = new AuthManager()
+    this.headless = headless
   }
 
   async initialize(): Promise<void> {
     logger.info('Initializing browser and page')
-    this.browser = await this.authManager.getBrowser()
+    this.browser = await this.authManager.getBrowser(this.headless)
     if (!this.browser) {
       throw new Error('Failed to initialize browser')
     }
@@ -192,6 +196,10 @@ export class RedNoteTools {
             const commentsElement = engageBar?.querySelector('.chat-wrapper .count')
             const comments = parseInt(commentsElement?.textContent?.replace(/[^\d]/g, '') || '0')
 
+            // Get tags
+            const tagElements = article.querySelectorAll('.tag-item');
+            const tags = Array.from(tagElements).map(tag => tag.textContent?.trim() || '').filter(Boolean);
+
             return {
               title,
               content,
@@ -199,7 +207,8 @@ export class RedNoteTools {
               author,
               likes,
               collects,
-              comments
+              comments,
+              tags
             }
           })
 

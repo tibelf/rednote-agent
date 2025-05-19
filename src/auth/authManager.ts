@@ -4,6 +4,7 @@ import { CookieManager } from './cookieManager';
 
 interface LoginOptions {
   timeout?: number;
+  headless?: boolean;
 }
 
 export class AuthManager {
@@ -16,12 +17,12 @@ export class AuthManager {
   /**
    * 初始化浏览器
    */
-  async getBrowser(): Promise<Browser> {
+  async getBrowser(headless: boolean = false): Promise<Browser> {
     try {
       if (!this.browser) {
-        logger.info('Launching browser');
+        logger.info(`Launching browser (headless: ${headless})`);
         this.browser = await chromium.launch({
-          headless: false,
+          headless,
           args: [
             '--disable-blink-features=AutomationControlled',
             '--disable-features=IsolateOrigins,site-per-process',
@@ -51,7 +52,8 @@ export class AuthManager {
   async login(options: LoginOptions = {}): Promise<void> {
     logger.info('Starting login process');
     const timeout = options.timeout || 120; // 默认超时2分钟
-    const browser = await this.getBrowser();
+    const headless = options.headless ?? false; // 默认非 headless 模式
+    const browser = await this.getBrowser(headless);
     let context, page;
     try {
       context = await browser.newContext();
