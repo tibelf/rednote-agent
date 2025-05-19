@@ -154,18 +154,20 @@ program
         }
         
         console.log(`\nFound ${comments.length} comments:`);
-        comments.slice(0, 5).forEach((comment: Comment, index: number) => {
+        comments.forEach((comment: Comment, index: number) => {
           console.log(`\n[${index + 1}] ${comment.author}`);
           console.log(`Content: ${comment.content}`);
+          console.log(`Likes: ${comment.likes}, Time: ${comment.time}`);
           
           if (comment.replies && comment.replies.length > 0) {
-            console.log(`  Replies: ${comment.replies.length}`);
+            console.log(`\n  Replies (${comment.replies.length}):`);
+            comment.replies.forEach((reply: Comment, replyIndex: number) => {
+              console.log(`  [${replyIndex + 1}] ${reply.author}`);
+              console.log(`  Content: ${reply.content}`);
+              console.log(`  Likes: ${reply.likes}, Time: ${reply.time}`);
+            });
           }
         });
-        
-        if (comments.length > 5) {
-          console.log(`\n... and ${comments.length - 5} more comments`);
-        }
       }
       
     } catch (error) {
