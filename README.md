@@ -1,98 +1,115 @@
 # RedNote Agent
+[中文版本](./README-zh.md) 
 
-一个命令行界面代理程序，用于通过直接的方式与小红书（Red Note）内容进行交互。
+A command-line interface (CLI) agent designed for direct interaction with Red
+Note (Xiaohongshu) content.
 
-## 功能特性
+## Features
 
-- **搜索笔记**: 通过主题或关键词搜索笔记
-- **获取笔记内容**: 获取特定笔记的详细内容
-- **获取笔记评论**: 获取特定笔记的评论
-- **全流程工作**: 在一个命令中执行完整的搜索-查看-评论流程
+- **Search Notes**: Search for notes by topic or keyword  
+- **Get Note Content**: Retrieve detailed content from a specific note  
+- **Get Note Comments**: Fetch comments from a specific note  
+- **Full Workflow**: Execute a complete search-view-comment workflow with
+  a single command
 
-## 前提条件
+## Prerequisites
 
-- Node.js 16 或更高版本
-- 需要小红书账号登录以获取完整功能
+- Node.js version 16 or higher  
+- Xiaohongshu account login is required for full functionality
 
-## 安装
+## Installation
 
-1. 克隆代码库:
+1. Clone the repository:
    ```bash
    git clone https://github.com/your-username/rednote-agent.git
    cd rednote-agent
    ```
 
-2. 安装依赖:
+2. Install dependencies:
    ```bash
    npm install
    ```
 
-3. 构建项目:
+3. Build the project:
    ```bash
    npm run build
    ```
 
-4. 全局安装 (可选):
+4. (Optional) Install globally:
    ```bash
    npm install -g .
    ```
 
-## 使用方法
+## Usage
 
-首先需要登录初始化:
+You must initialize login first:
 ```bash
 rednote-agent init
 ```
-这会打开浏览器并引导你登录小红书账号。登录后cookies会被保存，以便后续操作。
+This will open a browser window and guide you through logging into your Xiaohongshu account. After login, cookies will be saved for future operations.
 
-### 搜索笔记
+### Search Notes
 
-根据关键词搜索笔记:
+Search for notes by keyword:
 ```bash
-rednote-agent search "美食推荐"
+rednote-agent search "food recommendations"
 ```
 
-限制结果数量:
+Limit the number of results:
 ```bash
-rednote-agent search "美食推荐" --limit 5
+rednote-agent search "food recommendations" --limit 5
 ```
 
-### 获取笔记内容
+Search for notes by keyword with headless model:
+```bash
+rednote-agent search "food recommendations" --headless
+```
 
-获取特定笔记的详细内容:
+### Get Note Content
+
+Retrieve detailed content of a specific note:
 ```bash
 rednote-agent get-note "https://www.xiaohongshu.com/explore/12345abcde"
 ```
 
-### 获取笔记评论
+### Get Note Comments
 
-获取特定笔记的评论:
+Fetch comments of a specific note:
 ```bash
 rednote-agent get-comments "https://www.xiaohongshu.com/explore/12345abcde"
 ```
 
-### 全流程工作
-
-执行完整流程(搜索, 获取内容, 获取评论)一键操作:
+Fetch comments of a specific note with headless model:
 ```bash
-rednote-agent full "美食推荐"
+rednote-agent get-comments "https://www.xiaohongshu.com/explore/12345abcde" --headless
 ```
 
-跳过内容获取:
+### Full Workflow
+
+Execute the full process (search, get content, get comments) in one command:
 ```bash
-rednote-agent full "美食推荐" --skip-content
+rednote-agent full "food recommendations"
 ```
 
-跳过评论获取:
+Skip content retrieval:
 ```bash
-rednote-agent full "美食推荐" --skip-comments
+rednote-agent full "food recommendations" --skip-content
 ```
 
-## 注意事项
+Skip comment retrieval:
+```bash
+rednote-agent full "food recommendations" --skip-comments
+```
 
-- 该工具使用Playwright浏览器自动化技术，可能会弹出浏览器窗口
-- 首次使用必须完成登录流程才能正常使用其他功能
-- 小红书网站更新可能会影响工具功能，如遇问题请更新到最新版本
+Use headless model:
+```bash
+rednote-agent full "food recommendations" --headless
+```
+
+## Notes
+- This tool uses Playwright for browser automation, which may open a browser window
+- You must complete the login process on first use to access other features
+- Updates to the Xiaohongshu website may affect tool functionality. Please update to the latest version if issues occur
 
 ## License
 

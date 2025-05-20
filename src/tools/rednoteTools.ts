@@ -262,7 +262,7 @@ export class RedNoteTools {
           // this.page.on('console', message => {
           //   console.log(`浏览器控制台: ${message.text()}`);
           // });
-          
+
           // Extract note content
           const note = await this.page.evaluate(() => {
             const article = document.querySelector('#noteContainer')
@@ -307,7 +307,7 @@ export class RedNoteTools {
 
             // Get tags
             const tagElements = article.querySelectorAll('#detail-desc a.tag');
-            const tags = Array.from(tagElements).map(el => el.textContent?.replace(/^#/, '').trim()).filter(Boolean);
+            const tags = Array.from(tagElements).map(el => el.textContent?.replace(/^#/, '').trim() || '').filter(Boolean);
 
             // Get publish time and location
             const publishTimeElement = article.querySelector('.bottom-container .date');
@@ -315,7 +315,6 @@ export class RedNoteTools {
             let publishTime = '';
             let location = '';
 
-            
             if (publishTimeElement) {
               const fullText = publishTimeElement.textContent?.trim() || '';
               //console.log("fullText is " + fullText)
