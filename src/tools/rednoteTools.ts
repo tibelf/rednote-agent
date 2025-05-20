@@ -12,6 +12,7 @@ export interface Note {
   likes?: number
   collects?: number
   comments?: number
+  publishTime?: string
 }
 
 
@@ -52,6 +53,73 @@ export class RedNoteTools {
     logger.info('Initializing RedNoteTools')
     this.authManager = new AuthManager()
     this.headless = headless
+  }
+
+  /**
+   * Convert relative time to YYYY-MM-DD format
+   * @param timeStr Time string to convert
+   * @returns Formatted date string
+   */
+  private convertToStandardDate(timeStr: string): string {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const currentYear = now.getFullYear();
+    
+    // 处理"今天"的情况
+    if (timeStr.includes('今天')) {
+      return today.toISOString().split('T')[0];
+    }
+    
+    // 处理"昨天"的情况
+    if (timeStr.includes('昨天')) {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return yesterday.toISOString().split('T')[0];
+    }
+    
+    // 处理"X天前"的情况
+    const daysAgoMatch = timeStr.match(/(\d+)\s*天前/);
+    if (daysAgoMatch) {
+      const days = parseInt(daysAgoMatch[1]);
+      const date = new Date(today);
+      date.setDate(date.getDate() - days);
+      return date.toISOString().split('T')[0];
+    }
+    
+    // 处理"X个月前"的情况
+    const monthsAgoMatch = timeStr.match(/(\d+)\s*个月前/);
+    if (monthsAgoMatch) {
+      const months = parseInt(monthsAgoMatch[1]);
+      const date = new Date(today);
+      date.setMonth(date.getMonth() - months);
+      return date.toISOString().split('T')[0];
+    }
+    
+    // 处理"X年前"的情况
+    const yearsAgoMatch = timeStr.match(/(\d+)\s*年前/);
+    if (yearsAgoMatch) {
+      const years = parseInt(yearsAgoMatch[1]);
+      const date = new Date(today);
+      date.setFullYear(date.getFullYear() - years);
+      return date.toISOString().split('T')[0];
+    }
+    
+    // 处理"MM-DD"格式
+    const shortDateMatch = timeStr.match(/(\d{2})-(\d{2})/);
+    if (shortDateMatch) {
+      const month = parseInt(shortDateMatch[1]);
+      const day = parseInt(shortDateMatch[2]);
+      return `${currentYear}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+    }
+    
+    // 处理"YYYY-MM-DD"格式
+    const fullDateMatch = timeStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (fullDateMatch) {
+      return timeStr;
+    }
+    
+    // 如果无法解析，返回空字符串
+    return '';
   }
 
   async initialize(): Promise<void> {
@@ -157,9 +225,30 @@ export class RedNoteTools {
       for (let i = 0; i < Math.min(noteItems.length, limit); i++) {
         logger.info(`Processing note ${i + 1}/${Math.min(noteItems.length, limit)}`)
         try {
-          // Click on the note cover to open detail
-          await noteItems[i].$eval('a.cover.mask.ld', (el: HTMLElement) => el.click())
-          console.log(await noteItems[i].evaluate(node => node.outerHTML));
+          // Wait for the note cover to be visible and clickable
+          await this.page.waitForSelector('a.cover.mask.ld', {
+            state: 'visible',
+            timeout: 3000
+          }).catch(() => {
+            logger.warn('Note cover not immediately visible, continuing anyway')
+          })
+
+          // Try to click the note cover with retry logic
+          let retryCount = 0
+          const maxRetries = 3
+          while (retryCount < maxRetries) {
+            try {
+              await noteItems[i].$eval('a.cover.mask.ld', (el: HTMLElement) => el.click())
+              break
+            } catch (error) {
+              retryCount++
+              if (retryCount === maxRetries) {
+                throw error
+              }
+              logger.warn(`Failed to click note cover, retry ${retryCount}/${maxRetries}`)
+              await this.page.waitForTimeout(1000)
+            }
+          }
 
           // Wait for the note page to load
           logger.info('Waiting for note page to load')
@@ -169,6 +258,10 @@ export class RedNoteTools {
 
           await this.randomDelay(0.5, 1.5)
 
+          // 设置监听器来捕获页面中的所有控制台日志
+          this.page.on('console', message => {
+            console.log(`浏览器控制台: ${message.text()}`);
+          });
           // Extract note content
           const note = await this.page.evaluate(() => {
             const article = document.querySelector('#noteContainer')
@@ -212,10 +305,127 @@ export class RedNoteTools {
             const comments = parseInt(commentsElement?.textContent?.replace(/[^\d]/g, '') || '0')
 
             // Get tags
-            // const tagElements = article.querySelectorAll('.tag-item');
-            // const tags = Array.from(tagElements).map(tag => tag.textContent?.trim() || '').filter(Boolean);
             const tagElements = article.querySelectorAll('#detail-desc a.tag');
             const tags = Array.from(tagElements).map(el => el.textContent?.replace(/^#/, '').trim()).filter(Boolean);
+
+            // Get publish time and location
+            const publishTimeElement = article.querySelector('.bottom-container .date');
+            //console.log("publishTImeElement is " + publishTimeElement)
+            let publishTime = '';
+            let location = '';
+
+            
+            if (publishTimeElement) {
+              const fullText = publishTimeElement.textContent?.trim() || '';
+              //console.log("fullText is " + fullText)
+              // 分离时间和地点
+              const parts = fullText.split(/\s+/);
+              //console.log("parts is " + parts)
+              
+              // 处理时间部分
+              if (parts.length > 0) {
+                // 检查第一个部分是否为"编辑于"，如果是，则取第二个部分作为时间
+                let timeStr = '';
+                let startIndex = 0;
+                
+                if (parts[0] === '编辑于') {
+                  timeStr = parts[1]; // 直接取第二个部分作为时间字符串
+                  startIndex = 1;
+                  console.log("检测到'编辑于'前缀，使用第二个部分作为时间:", timeStr);
+                } else if (parts[0].includes('编辑于')) {
+                  // 如果"编辑于"是第一个部分的一部分，则去除该前缀
+                  timeStr = parts[0].replace('编辑于', '').trim();
+                  console.log("检测到'编辑于'内嵌前缀，移除后:", timeStr);
+                } else {
+                  timeStr = parts[0];
+                  console.log("使用第一个部分作为时间:", timeStr);
+                }
+                          
+                // 日期转换逻辑
+                const now = new Date();
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const currentYear = now.getFullYear();
+                
+                // 处理"今天"的情况
+                if (timeStr.includes('今天')) {
+                  publishTime = `${currentYear}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                }
+                // 处理"昨天"的情况
+                else if (timeStr.includes('昨天')) {
+                  const yesterday = new Date(today);
+                  yesterday.setDate(yesterday.getDate() - 1);
+                  publishTime = `${currentYear}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+                }
+                // 处理"X天前"的情况
+                else if (timeStr.match(/\d+\s*天前/)) {
+                  const daysAgoMatch = timeStr.match(/(\d+)\s*天前/);
+                  if (daysAgoMatch) {
+                    const days = parseInt(daysAgoMatch[1]);
+                    const date = new Date(today);
+                    date.setDate(date.getDate() - days);
+                    publishTime = `${currentYear}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                  }
+                }
+                // 处理"X个月前"的情况
+                else if (timeStr.match(/\d+\s*个月前/)) {
+                  const monthsAgoMatch = timeStr.match(/(\d+)\s*个月前/);
+                  if (monthsAgoMatch) {
+                    const months = parseInt(monthsAgoMatch[1]);
+                    const date = new Date(today);
+                    date.setMonth(date.getMonth() - months);
+                    publishTime = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                  }
+                }
+                // 处理"X年前"的情况
+                else if (timeStr.match(/\d+\s*年前/)) {
+                  const yearsAgoMatch = timeStr.match(/(\d+)\s*年前/);
+                  if (yearsAgoMatch) {
+                    const years = parseInt(yearsAgoMatch[1]);
+                    const date = new Date(today);
+                    date.setFullYear(date.getFullYear() - years);
+                    publishTime = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                  }
+                }
+                // 处理"X小时前"的情况
+                else if (timeStr.match(/\d+\s*小时前/)) {
+                  const hoursAgoMatch = timeStr.match(/(\d+)\s*小时前/);
+                  if (hoursAgoMatch) {
+                    publishTime = `${currentYear}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                  }
+                }
+                // 处理"X分钟前"的情况
+                else if (timeStr.match(/\d+\s*分钟前/)) {
+                  const minutesAgoMatch = timeStr.match(/(\d+)\s*分钟前/);
+                  if (minutesAgoMatch) {
+                    publishTime = `${currentYear}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                  }
+                }
+                // 处理"MM-DD"格式 (支持单位数月份和日期)
+                else if (timeStr.match(/(\d{1,2})-(\d{1,2})/)) {
+                  const shortDateMatch = timeStr.match(/(\d{1,2})-(\d{1,2})/);
+                  if (shortDateMatch) {
+                    const month = parseInt(shortDateMatch[1]);
+                    const day = parseInt(shortDateMatch[2]);
+                    publishTime = `${currentYear}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+                  }
+                }
+                // 处理"YYYY-MM-DD"格式
+                else if (timeStr.match(/(\d{4})-(\d{1,2})-(\d{1,2})/)) {
+                  const fullDateMatch = timeStr.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+                  if (fullDateMatch) {
+                    const year = parseInt(fullDateMatch[1]);
+                    const month = parseInt(fullDateMatch[2]);
+                    const day = parseInt(fullDateMatch[3]);
+                    publishTime = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+                  }
+                }
+
+                // 如果时间解析失败，使用原始文本
+                if (publishTime === '') {
+                  publishTime = fullText;
+                }
+              }
+            }
 
             return {
               title,
@@ -225,7 +435,8 @@ export class RedNoteTools {
               likes,
               collects,
               comments,
-              tags
+              tags,
+              publishTime
             }
           })
 
@@ -359,46 +570,6 @@ export class RedNoteTools {
 
       //调用滚动加载评论方法
       await this.scrollAndLoadAllComments(this.page)
-
-      // //滚动回到页面评论的顶部
-      // await this.page.evaluate(() => {
-      //   const selectors = [
-      //     '.comment-list',
-      //     '.comments-list',
-      //     '[class*="comment-list"]',
-      //     '.comment-panel',
-      //     '.comments-panel',
-      //     '[class*="comment-panel"]',
-      //     '.comment-content',
-      //     '.comments-content',
-      //     '[class*="comment-content"]',
-      //     '.scroll-container',
-      //     '.scroll-area',
-      //     '[class*="scroll"]',
-      //     '.comment-modal',
-      //     '.comments-popup',
-      //     '[role="dialog"]',
-      //     '.comments-container'
-      //   ];
-      //   let scrollContainer = null;
-      //   for (const selector of selectors) {
-      //     const element = document.querySelector(selector);
-      //     if (element) {
-      //       const style = window.getComputedStyle(element);
-      //       const overflow = style.overflow + style.overflowY;
-      //       const height = element.scrollHeight;
-      //       const clientHeight = element.clientHeight;
-      //       if ((overflow.includes('scroll') || overflow.includes('auto')) && height > clientHeight) {
-      //         scrollContainer = element;
-      //         break;
-      //       }
-      //     }
-      //   }
-      //   if (scrollContainer) {
-      //     scrollContainer.scrollTo({ top: 0, behavior: 'auto' });
-      //   }
-      // })
-      // await this.page.waitForTimeout(2000)
 
       // 调用提取出来的滚动加载评论方法
       const allComments = await this.scrollAndCollectAllComments(this.page, commentCount)

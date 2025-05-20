@@ -10,6 +10,7 @@ export interface Note {
   comments?: number;
   collects?: number;
   tags: string[];
+  publishTime?: string;
 }
 
 /**

@@ -40,6 +40,7 @@ program
         console.log(`\nTags: ${note.tags.join(', ')}`);
         console.log(`Likes: ${note.likes}, Collects: ${note.collects}, Comments: ${note.comments}`);
         console.log(`URL: ${note.url}`);
+        console.log(`Publish Time: ${note.publishTime}`);
       });
     } catch (error) {
       logger.error('Error while searching notes:', error);
