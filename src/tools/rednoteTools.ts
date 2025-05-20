@@ -259,9 +259,10 @@ export class RedNoteTools {
           await this.randomDelay(0.5, 1.5)
 
           // 设置监听器来捕获页面中的所有控制台日志
-          this.page.on('console', message => {
-            console.log(`浏览器控制台: ${message.text()}`);
-          });
+          // this.page.on('console', message => {
+          //   console.log(`浏览器控制台: ${message.text()}`);
+          // });
+          
           // Extract note content
           const note = await this.page.evaluate(() => {
             const article = document.querySelector('#noteContainer')
