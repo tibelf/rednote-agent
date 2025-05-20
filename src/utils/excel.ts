@@ -160,7 +160,15 @@ export class ExcelExporter {
     XLSX.writeFile(this.notesWorkbook, this.notesFilePath);
   }
 
-  public appendComments(noteId: number, comments: Comment[]) {
+  public appendComments(noteUrl: string, comments: Comment[]) {
+    // Get note ID from note URL
+    const noteId = this.noteMap.get(noteUrl);
+
+    if (!noteId) {
+      logger.error(`Note with URL ${noteUrl} not found`);
+      return;
+    }
+
     // Get existing comments
     const existingComments = XLSX.utils.sheet_to_json<CommentRow>(this.commentsSheet);
 
@@ -190,10 +198,6 @@ export class ExcelExporter {
 
   public appendNoteWithComments(note: Note, comments: Comment[]) {
     this.appendNote(note);
-    const noteId = this.noteMap.get(note.url);
-    logger.info(`noteId: ${noteId}`);
-    if (noteId) {
-      this.appendComments(noteId, comments);
-    }
+    this.appendComments(note.url, comments);
   }
 } 

@@ -146,6 +146,7 @@ program
         
         let noteDetail: NoteDetail | undefined;
         let comments: Comment[] = [];
+
         
         // Step 2: Get note content (if not skipped)
         if (!options.skipContent) {
@@ -156,6 +157,8 @@ program
           logger.info(`\nContent:\n${noteDetail.content}`);
           logger.info(`\nTags: ${noteDetail.tags.join(', ')}`);
         }
+
+        excelExporter.appendNote(noteDetail || note);
         
         // Step 3: Get comments (if not skipped)
         if (!options.skipComments) {
@@ -183,8 +186,10 @@ program
           }
         }
 
+        excelExporter.appendComments(note.url, comments);
+        
         // Save note and its comments to Excel
-        excelExporter.appendNoteWithComments(noteDetail || note, comments);
+        // excelExporter.appendNoteWithComments(noteDetail || note, comments);
         logger.info(`\n--- Note "${note.title}" has been saved to notes.xlsx ---`);
       }
       
