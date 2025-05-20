@@ -6,6 +6,7 @@ import { getNoteContent } from './commands/getNoteContent';
 import { getNoteComments } from './commands/getNoteComments';
 import { logger } from './utils/logger';
 import { Note, Comment, NoteDetail } from './types/note';
+import { ExcelExporter } from './utils/excel';
 
 // Initialize the CLI
 const program = new Command();
@@ -136,46 +137,58 @@ program
         logger.info(`URL: ${note.url}`);
       });
       
-      // Process only the first note for the full workflow
-      const selectedNote = notes[0];
-      logger.info(`\n--- Selected note: "${selectedNote.title}" ---`);
+      // Initialize Excel exporter
+      const excelExporter = new ExcelExporter();
       
-      // Step 2: Get note content (if not skipped)
-      if (!options.skipContent) {
-        logger.info('\n--- Getting note content ---');
-        const noteDetail = await getNoteContent(selectedNote.url, options.headless);
-        logger.info(`\nTitle: ${noteDetail.title}`);
-        logger.info(`Author: ${noteDetail.author}`);
-        logger.info(`\nContent:\n${noteDetail.content}`);
-        logger.info(`\nTags: ${noteDetail.tags.join(', ')}`);
-      }
-      
-      // Step 3: Get comments (if not skipped)
-      if (!options.skipComments) {
-        logger.info('\n--- Getting note comments ---');
-        const comments = await getNoteComments(selectedNote.url, options.headless);
+      // Process notes one by one
+      for (const note of notes) {
+        logger.info(`\n--- Processing note: "${note.title}" ---`);
         
-        if (comments.length === 0) {
-          logger.info('No comments found for this note.');
-          return;
+        let noteDetail: NoteDetail | undefined;
+        let comments: Comment[] = [];
+        
+        // Step 2: Get note content (if not skipped)
+        if (!options.skipContent) {
+          logger.info('\n--- Getting note content ---');
+          noteDetail = await getNoteContent(note.url, options.headless);
+          logger.info(`\nTitle: ${noteDetail.title}`);
+          logger.info(`Author: ${noteDetail.author}`);
+          logger.info(`\nContent:\n${noteDetail.content}`);
+          logger.info(`\nTags: ${noteDetail.tags.join(', ')}`);
         }
         
-        logger.info(`\nFound ${comments.length} comments:`);
-        comments.forEach((comment: Comment, index: number) => {
-          logger.info(`\n[${index + 1}] ${comment.author}`);
-          logger.info(`Content: ${comment.content}`);
-          logger.info(`Likes: ${comment.likes}, Time: ${comment.time}`);
+        // Step 3: Get comments (if not skipped)
+        if (!options.skipComments) {
+          logger.info('\n--- Getting note comments ---');
+          comments = await getNoteComments(note.url, options.headless);
           
-          if (comment.replies && comment.replies.length > 0) {
-            logger.info(`\n  Replies (${comment.replies.length}):`);
-            comment.replies.forEach((reply: Comment, replyIndex: number) => {
-              logger.info(`  [${replyIndex + 1}] ${reply.author}`);
-              logger.info(`  Content: ${reply.content}`);
-              logger.info(`  Likes: ${reply.likes}, Time: ${reply.time}`);
+          if (comments.length === 0) {
+            logger.info('No comments found for this note.');
+          } else {
+            logger.info(`\nFound ${comments.length} comments:`);
+            comments.forEach((comment: Comment, index: number) => {
+              logger.info(`\n[${index + 1}] ${comment.author}`);
+              logger.info(`Content: ${comment.content}`);
+              logger.info(`Likes: ${comment.likes}, Time: ${comment.time}`);
+              
+              if (comment.replies && comment.replies.length > 0) {
+                logger.info(`\n  Replies (${comment.replies.length}):`);
+                comment.replies.forEach((reply: Comment, replyIndex: number) => {
+                  logger.info(`  [${replyIndex + 1}] ${reply.author}`);
+                  logger.info(`  Content: ${reply.content}`);
+                  logger.info(`  Likes: ${reply.likes}, Time: ${reply.time}`);
+                });
+              }
             });
           }
-        });
+        }
+
+        // Save note and its comments to Excel
+        excelExporter.appendNoteWithComments(noteDetail || note, comments);
+        logger.info(`\n--- Note "${note.title}" has been saved to notes.xlsx ---`);
       }
+      
+      logger.info('\n--- All notes have been processed and saved to notes.xlsx ---');
       
     } catch (error) {
       logger.error('Error during full workflow:', error);
